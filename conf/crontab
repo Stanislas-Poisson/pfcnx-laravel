@@ -1,0 +1,5 @@
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
+MAILTO=root
+
+* * * * * www-data php /var/www/html/artisan schedule:run >> /dev/null 2>&1
