@@ -12,6 +12,7 @@ RUN apt-get update \
         libjpeg-dev \
         libpng-dev \
         libmcrypt-dev \
+        libzip-dev \
         gnupg \
         vim \
         cron \
@@ -43,7 +44,8 @@ RUN docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-png-dir
         opcache \
         pdo_mysql \
         json \
-        pcntl
+        pcntl \
+        zip
 
 # Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --filename=composer --install-dir=/usr/local/bin \
