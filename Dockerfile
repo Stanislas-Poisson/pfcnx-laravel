@@ -28,7 +28,9 @@ RUN apt-get update \
     git \
     supervisor \
     curl \
-    && apt-get clean \
+    wget \
+    && apt-get -y autoclean \
+    && apt-get -y autoremove \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Composer and parallel to speed up the installation process.
@@ -68,7 +70,17 @@ RUN curl -sL https://deb.nodesource.com/setup_12.x | bash - \
     && apt-get install -y nodejs \
     && npm install --global --save-exact yarn \
     && npm install --global --save-exact prettier \
-    && apt-get clean \
+    && apt-get -y autoclean \
+    && apt-get -y autoremove \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Add Google Chrome
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable xvfb libnss3-dev libxi6 libgconf-2-4 \
+    && apt-get -y autoclean \
+    && apt-get -y autoremove \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set the locale
