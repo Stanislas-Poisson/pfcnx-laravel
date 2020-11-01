@@ -1,8 +1,14 @@
 FROM php:7.4-fpm
 
-# Dependencies
+# Set working directory
+WORKDIR /var/www
+VOLUME ["/var/www"]
+
+# Dependencies of unix, Install composer, PHP-CS-Fixer, Node.js, Npm, Yarn, Prettier, Xdebug and Redis
 RUN apt-get update \
     && apt-get install -y \
+    build-essential \
+    jpegoptim optipng pngquant gifsicle \
     libcurl4-gnutls-dev \
     libmcrypt-dev \
     libpq-dev \
@@ -18,36 +24,45 @@ RUN apt-get update \
     libnss3 \
     libx11-6 \
     libx11-xcb1 \
+    libxml2-dev \
     gnupg \
     vim \
-    cron \
+    nano \
     imagemagick \
     locales \
     zip \
     unzip \
     git \
-    supervisor \
     curl \
     wget \
+    # Install composer and a plugin for parallel installation and speed up the install
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+    # && composer global require "hirak/prestissimo" \
+    # PHP-CS-Fixer
+    && curl -sL http://cs.sensiolabs.org/download/php-cs-fixer-v2.phar -o php-cs-fixer \
+    && chmod a+x php-cs-fixer \
+    && mv php-cs-fixer /usr/local/bin/php-cs-fixer \
+    # Node.js
+    && curl -sL https://deb.nodesource.com/setup_14.x | bash - \
+    && apt-get update \
+    && apt-get install -y nodejs \
+    # Yarn
+    && npm install --global --save-exact yarn \
+    # Prettier
+    && npm install --global --save-exact prettier \
+    # Configure for stable version
+    && pear config-set preferred_state stable \
+    # Xdebug
+    && pecl install -o -f xdebug \
+    # Redis
+    && pecl install -o -f redis \
+    # Cleaning the image step
+    && rm -rf /tmp/pear \
     && apt-get -y autoclean \
     && apt-get -y autoremove \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Composer and parallel to speed up the installation process.
-RUN curl -sS https://getcomposer.org/installer | php -- --filename=composer --install-dir=/usr/local/bin \
-    composer global require "hirak/prestissimo:^0.3"
-
-# PHP-CS-Fixer
-RUN curl -sL http://cs.sensiolabs.org/download/php-cs-fixer-v2.phar -o php-cs-fixer \
-    && chmod a+x php-cs-fixer \
-    && mv php-cs-fixer /usr/local/bin/php-cs-fixer
-
-# Xdebug and Redis
-RUN pecl install -o -f xdebug-2.8.0 \
-    && pecl install -o -f redis-6.0.8 \
-    && rm -rf /tmp/pear
-
-# Php Extensions
+# Install extensions
 RUN docker-php-ext-configure gd --with-freetype=/usr/include/ --with-jpeg=/usr/include/ \
     && docker-php-ext-install \
     intl \
@@ -62,26 +77,9 @@ RUN docker-php-ext-configure gd --with-freetype=/usr/include/ --with-jpeg=/usr/i
     pcntl \
     zip \
     curl \
+    dom \
+    xml \
     && docker-php-ext-enable redis
-
-# Node.js, Npm, Yarn and Prettier
-RUN curl -sL https://deb.nodesource.com/setup_12.x | bash - \
-    && apt-get update \
-    && apt-get install -y nodejs \
-    && npm install --global --save-exact yarn \
-    && npm install --global --save-exact prettier \
-    && apt-get -y autoclean \
-    && apt-get -y autoremove \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Add Google Chrome
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable xvfb libnss3-dev libxi6 libgconf-2-4 \
-    && apt-get -y autoclean \
-    && apt-get -y autoremove \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set the locale
 RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
@@ -91,24 +89,10 @@ ENV LANG fr_FR.UTF-8
 ENV LANGUAGE fr_FR:fr
 ENV LC_ALL fr_FR.UTF-8
 
-# Configuration
-COPY conf/php.ini /usr/local/etc/php/php.ini
-COPY conf/xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
-COPY conf/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod 0777 /usr/local/bin/entrypoint.sh
-COPY conf/supervisord-horizon.conf /etc/supervisord-horizon.conf
+# Add user for laravel application
+RUN groupadd -g 1000 www
+RUN useradd -u 1000 -ms /bin/bash -g www www
 
-# Cron
-RUN touch /var/log/cron.log
-COPY conf/crontab /etc/cron.d/app
-RUN chmod 0644 -R /etc/cron.d/
-RUN chmod +x -R /etc/cron.d/
-RUN crontab -u www-data /etc/cron.d/app
-
-EXPOSE 9515 9000 8000 3000 3001
-WORKDIR /var/www/html
-
-VOLUME ["/var/www/html"]
-
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# Expose port 9000 and start php-fpm server
+EXPOSE 9000
 CMD ["php-fpm"]
